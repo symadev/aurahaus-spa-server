@@ -38,50 +38,71 @@ async function run() {
 
 
 
-//for create user
+
+      //jwt related api
+      app.post('/jwt', async (req, res) => {
+        const user = req.body;
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: '1h'
+        });
+        res.send({ token });
+      });
+
+
+      //middleware process
+    const verifyToken = (req, res, next) => {
+      console.log('inside verify token', req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'unauthorized access' })
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: 'unauthorized access' })
+        }
+        req.decoded = decoded;
+        next(); // bar
+      });
+
+    }
+
+    
+
+
+
+    //for create user
     app.post('/users', async (req, res) => {
-        try {
-          const user = req.body;
-          console.log("Adding user:", user);
-          
-          // Check if user already exists
-          const existingUser = await userCollection.findOne({ email: user.email });
-          if (existingUser) {
-            return res.status(400).send({ message: 'User already exists' });
-          }
-          
-          const result = await userCollection.insertOne(user);
-          res.send(result);
-        } catch (error) {
-          console.error("Error adding user:", error);
-          res.status(500).send({ error: "Failed to add user" });
-        }
-      });
+
+      const user = req.body;
+      console.log("Adding user:", user);
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+
+    });
 
 
 
-//get al user--> we can check apis in localhost through that
-      app.get('/users', async (req, res) => {
-        try {
-          const users = await userCollection.find().toArray();
-          res.send(users);
-        } catch (error) {
-          console.error("Error getting users:", error);
-          res.status(500).send({ error: "Failed to get users" });
-        }
-      });
-      
+    //get al user--> we can check apis in localhost through that
+    app.get('/users', async (req, res) => {
+
+      const users = await userCollection.find().toArray();
+      res.send(users);
+    });
 
 
 
 
-//Check if a user is admin
-    app.get('/users/admin/:email', async (req, res) => {
-        const email = req.params.email;
-        const user = await userCollection.findOne({ email: email });
-        const isAdmin = user?.role === 'admin';
-        res.send({ admin: isAdmin });
-      });
+
+    //Check if a user is admin
+    app.get('/users/admin/:email',verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email: email });
+      const isAdmin = user?.role === 'admin';
+      res.send({ admin: isAdmin });
+    });
+
+
+
 
 
 
